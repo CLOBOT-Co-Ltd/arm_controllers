@@ -273,7 +273,7 @@ private:
             current_jpos_des.at(9) +=
               std::clamp(
               (deg_30 * std::sin(4 * Pi * phase)) - current_jpos_des.at(9),
-              -max_joint_delta, max_joint_delta);
+              -max_joint_delta_, max_joint_delta_);
           }
 
           // Set control commands
