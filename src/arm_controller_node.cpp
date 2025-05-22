@@ -604,7 +604,9 @@ private:
     RCLCPP_INFO(this->get_logger(), "Received gesture action goal request: %d", goal->action);
     (void)uuid;
     // Accept the goal if action is 0 or 1, otherwise reject
-    if (goal->action == INIT_POS_MOTION || goal->action == WAVE_HAND_MOTION) {
+    if (goal->action == INIT_POS_MOTION || goal->action == WAVE_HAND_MOTION ||
+      goal->action == FOLLOW_MOTION)
+    {
       return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
     } else {
       RCLCPP_WARN(this->get_logger(), "Rejected goal: Invalid action type %d", goal->action);
