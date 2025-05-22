@@ -202,9 +202,9 @@ private:
 
       // sin 이징 interpolation
       for (int j = 0; j < arm_joints_.size(); ++j) {
-        current_jpos_des.at(j) = std::clamp(
-          (float) (start_pos.at(j) * (1.0f - smooth_phase) + target_pose.at(j) * smooth_phase),
-          -max_joint_delta_, max_joint_delta_);
+        current_jpos_des.at(j) = start_pos.at(j) * (1.0f - smooth_phase) + target_pose.at(j) *
+          smooth_phase
+        ;
 
         // Set control commands
         msg_.motor_cmd().at(arm_joints_.at(j)).q(current_jpos_des.at(j));
@@ -279,9 +279,8 @@ private:
               (float) (deg_30 * std::sin(4 * Pi * phase)) - current_jpos_des.at(j),
               -max_joint_delta_, max_joint_delta_);
           } else {
-            current_jpos_des.at(j) = std::clamp(
-              (float) (start_pos.at(j) * (1.0f - smooth_phase) + target_pose.at(j) * smooth_phase),
-              -max_joint_delta_, max_joint_delta_);
+            current_jpos_des.at(j) = start_pos.at(j) * (1.0f - smooth_phase) + target_pose.at(j) *
+              smooth_phase;
           }
 
           // Set control commands
@@ -346,9 +345,8 @@ private:
         for (int j = 0; j < arm_joints_.size(); ++j) {
 
 
-          current_jpos_des.at(j) = std::clamp(
-            (float) (start_pos.at(j) * (1.0f - smooth_phase) + init_pos_.at(j) * smooth_phase),
-            -max_joint_delta_, max_joint_delta_);
+          current_jpos_des.at(j) = start_pos.at(j) * (1.0f - smooth_phase) + init_pos_.at(j) *
+            smooth_phase;
 
           // Set control commands
           msg_.motor_cmd().at(arm_joints_.at(j)).q(current_jpos_des.at(j));
@@ -436,9 +434,7 @@ private:
       std::array<float, 15> current_jpos_des;
       for (int j = 0; j < arm_joints_.size(); ++j) {
         // Interpolate from current position to init_pos
-        current_jpos_des.at(j) = std::clamp(
-          (float) (current_jpos.at(j) * (1.0f - phase) + init_pos_.at(j) * phase),
-          -max_joint_delta_, max_joint_delta_);
+        current_jpos_des.at(j) = current_jpos.at(j) * (1.0f - phase) + init_pos_.at(j) * phase;
 
         msg_.motor_cmd().at(arm_joints_.at(j)).q(current_jpos_des.at(j));
         msg_.motor_cmd().at(arm_joints_.at(j)).dq(dq_);
