@@ -102,7 +102,7 @@ private:
   float dq_ = 0.f;
   float tau_ff_ = 0.f;
   float control_dt_ = 0.02f;   // 50 Hz
-  float max_joint_velocity_ = 0.25f;   // rad/s
+  float max_joint_velocity_ = 0.5f;   // rad/s
   float max_joint_delta_ = max_joint_velocity_ * control_dt_;   // max angle change per control step
 
 public:
@@ -140,7 +140,7 @@ public:
 
 
     // Initial arm setup (move to init_pos once at startup)
-    initialize_arm();
+    // initialize_arm();
 
     // Create the action server
     action_server_ = rclcpp_action::create_server<arm_interfaces::action::Gesture>(
@@ -250,8 +250,12 @@ private:
     if (action_type == WAVE_HAND_MOTION) {
       // Get current position from state_msg (ensure state_msg is fresh)
       // A more robust approach would wait for a state message if needed
+
+      std::array<float, 15> current_jpos_des;
       for (int i = 0; i < arm_joints_.size(); ++i) {
         start_pos.at(i) = state_msg_.motor_state().at(arm_joints_.at(i)).q();
+
+        current_jpos_des.at(i) = start_pos.at(i);
       }
 
       for (int i = 0; i <= num_time_steps; ++i) {
@@ -261,17 +265,16 @@ private:
         }
 
         float phase = static_cast<float>(i) / num_time_steps;
-        float smooth_phase = 0.5f - 0.5f * cos(Pi * phase);
-        std::array<float, 15> current_jpos_des;
 
-        // sin 이징 interpolation
+        // linear interpolation
         for (int j = 0; j < arm_joints_.size(); ++j) {
-          current_jpos_des.at(j) = start_pos.at(j) * (1.0f - smooth_phase) + target_pose.at(j) *
-            smooth_phase;
-
           // kRightShoulderYaw
-          current_jpos_des.at(9) = start_pos.at(9) * (1.0f - phase) +
-            (deg_30 * std::sin(4 * Pi * phase)) * phase;
+          if (j == 9) {
+            current_jpos_des.at(9) +=
+              std::clamp(
+              (deg_30 * std::sin(4 * Pi * phase)) - current_jpos_des.at(9),
+              -max_joint_delta, max_joint_delta);
+          }
 
           // Set control commands
           msg_.motor_cmd().at(arm_joints_.at(j)).q(current_jpos_des.at(j));
