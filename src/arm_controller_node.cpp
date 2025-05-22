@@ -316,6 +316,69 @@ private:
 
         loop_rate.sleep();
       }
+
+
+      // Get current position from state_msg (ensure state_msg is fresh)
+      // A more robust approach would wait for a state message if needed
+      for (int i = 0; i < arm_joints_.size(); ++i) {
+        start_pos.at(i) = state_msg_.motor_state().at(arm_joints_.at(i)).q();
+      }
+
+
+      for (int i = 0; i <= num_time_steps; ++i) {
+        if (goal_handle && goal_handle->is_canceling()) {
+          RCLCPP_INFO(this->get_logger(), "Action canceled during movement");
+          return;       // Exit movement loop
+        }
+
+        float phase = static_cast<float>(i) / num_time_steps;
+        float smooth_phase = 0.5f - 0.5f * cos(Pi * phase);
+
+        // sin 이징 interpolation
+        for (int j = 0; j < arm_joints_.size(); ++j) {
+          current_jpos_des.at(j) = start_pos.at(j) * (1.0f - smooth_phase) + init_pos_.at(j) *
+            smooth_phase;
+
+          // Set control commands
+          msg_.motor_cmd().at(arm_joints_.at(j)).q(current_jpos_des.at(j));
+          msg_.motor_cmd().at(arm_joints_.at(j)).dq(dq_);       // Velocity command (usually 0 for position control)
+          msg_.motor_cmd().at(arm_joints_.at(j)).kp(kp_array_.at(j));
+          msg_.motor_cmd().at(arm_joints_.at(j)).kd(kd_array_.at(j));
+          msg_.motor_cmd().at(arm_joints_.at(j)).tau(tau_ff_);       // Feedforward torque (usually 0)
+
+          // Populate feedback (using actual state, not desired)
+          if (feedback) {       // Use the passed feedback pointer
+            // Ensure feedback->current_joint_angle has enough space or is resized
+            // Assuming it's a dynamic container or properly sized
+            // For arm_interfaces::action::Gesture feedback structure (JointInfo[]),
+            // we need to populate individual JointInfo messages.
+            // This part requires more detailed knowledge of JointInfo struct.
+            // Based on the image, JointInfo has name, number, angle_rad
+            if (feedback->current_joint_angle.size() <= j) {
+              feedback->current_joint_angle.resize(j + 1);
+            }
+            feedback->current_joint_angle.at(j).joint_idx.name = "joint_" +
+              std::to_string(arm_joints_.at(j));                                                                      // Example name
+            feedback->current_joint_angle.at(j).joint_idx.number = arm_joints_.at(j);
+            feedback->current_joint_angle.at(j).angle_rad =
+              state_msg_.motor_state().at(arm_joints_.at(j)).q();                                                      // Use actual state for feedback
+          }
+        }
+
+        // Set weight (if needed for arm control mode, e.g., to enable torque control)
+        // Assuming JointIndex::kNotUsedJoint is used for weight based on h1_2_arm_sdk_dds_example.cpp
+        msg_.motor_cmd().at(JointIndex::kNotUsedJoint).q(1.0f); // Example: set weight to 1.0 during movement
+
+        // Send dds msg
+        arm_sdk_publisher_->Write(msg_);
+
+        // Publish feedback
+        if (goal_handle && feedback) {     // Check both pointers are valid
+          goal_handle->publish_feedback(feedback);      // Pass the shared pointer directly
+        }
+
+        loop_rate.sleep();
+      }
     }
 
 
