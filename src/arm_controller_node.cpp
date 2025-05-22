@@ -102,7 +102,7 @@ private:
   float dq_ = 0.f;
   float tau_ff_ = 0.f;
   float control_dt_ = 0.02f;   // 50 Hz
-  float max_joint_velocity_ = 0.5f;   // rad/s
+  float max_joint_velocity_ = 0.75f;   // rad/s
   float max_joint_delta_ = max_joint_velocity_ * control_dt_;   // max angle change per control step
 
 public:
@@ -492,7 +492,7 @@ private:
     auto result = std::make_shared<arm_interfaces::action::Gesture::Result>();
 
     std::array<float, 15> target_pose;
-    float move_duration = 5.0f;     // Duration for the action movement
+    float move_duration = 3.0f;     // Duration for the action movement
 
     if (goal->action == INIT_POS_MOTION) {
       target_pose = init_pos_;       // Action 0: Move to init_pos
