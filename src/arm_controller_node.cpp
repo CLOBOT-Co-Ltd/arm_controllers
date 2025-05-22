@@ -202,8 +202,9 @@ private:
 
       // sin 이징 interpolation
       for (int j = 0; j < arm_joints_.size(); ++j) {
-        current_jpos_des.at(j) = start_pos.at(j) * (1.0f - smooth_phase) + target_pose.at(j) *
-          smooth_phase;
+        current_jpos_des.at(j) = std::clamp(
+          (float) (start_pos.at(j) * (1.0f - smooth_phase) + target_pose.at(j) * smooth_phase),
+          -max_joint_delta_, max_joint_delta_);
 
         // Set control commands
         msg_.motor_cmd().at(arm_joints_.at(j)).q(current_jpos_des.at(j));
@@ -255,7 +256,9 @@ private:
       for (int i = 0; i < arm_joints_.size(); ++i) {
         start_pos.at(i) = state_msg_.motor_state().at(arm_joints_.at(i)).q();
 
-        current_jpos_des.at(i) = start_pos.at(i);
+        if (i == 9) {
+          current_jpos_des.at(i) = start_pos.at(i);
+        }
       }
 
       for (int i = 0; i <= num_time_steps; ++i) {
@@ -265,14 +268,19 @@ private:
         }
 
         float phase = static_cast<float>(i) / num_time_steps;
+        float smooth_phase = 0.5f - 0.5f * cos(Pi * phase);
 
         // linear interpolation
         for (int j = 0; j < arm_joints_.size(); ++j) {
           // kRightShoulderYaw
           if (j == 9) {
-            current_jpos_des.at(9) +=
+            current_jpos_des.at(j) +=
               std::clamp(
-              (float) (deg_30 * std::sin(4 * Pi * phase)) - current_jpos_des.at(9),
+              (float) (deg_30 * std::sin(4 * Pi * phase)) - current_jpos_des.at(j),
+              -max_joint_delta_, max_joint_delta_);
+          } else {
+            current_jpos_des.at(j) = std::clamp(
+              (float) (start_pos.at(j) * (1.0f - smooth_phase) + target_pose.at(j) * smooth_phase),
               -max_joint_delta_, max_joint_delta_);
           }
 
@@ -336,8 +344,11 @@ private:
 
         // sin 이징 interpolation
         for (int j = 0; j < arm_joints_.size(); ++j) {
-          current_jpos_des.at(j) = start_pos.at(j) * (1.0f - smooth_phase) + init_pos_.at(j) *
-            smooth_phase;
+
+
+          current_jpos_des.at(j) = std::clamp(
+            (float) (start_pos.at(j) * (1.0f - smooth_phase) + init_pos_.at(j) * smooth_phase),
+            -max_joint_delta_, max_joint_delta_);
 
           // Set control commands
           msg_.motor_cmd().at(arm_joints_.at(j)).q(current_jpos_des.at(j));
@@ -425,7 +436,9 @@ private:
       std::array<float, 15> current_jpos_des;
       for (int j = 0; j < arm_joints_.size(); ++j) {
         // Interpolate from current position to init_pos
-        current_jpos_des.at(j) = current_jpos.at(j) * (1.0f - phase) + init_pos_.at(j) * phase;
+        current_jpos_des.at(j) = std::clamp(
+          (float) (current_jpos.at(j) * (1.0f - phase) + init_pos_.at(j) * phase),
+          -max_joint_delta_, max_joint_delta_);
 
         msg_.motor_cmd().at(arm_joints_.at(j)).q(current_jpos_des.at(j));
         msg_.motor_cmd().at(arm_joints_.at(j)).dq(dq_);
