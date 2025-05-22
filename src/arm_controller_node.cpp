@@ -22,7 +22,7 @@ constexpr double deg_10 = 0.174533;
 
 constexpr int INIT_POS_MOTION = 0;
 constexpr int WAVE_HAND_MOTION = 1;
-constexpt int FOLLOW_MOTION = 2;
+constexpr int FOLLOW_MOTION = 2;
 
 enum JointIndex
 {
