@@ -142,7 +142,7 @@ public:
       0};
 
     follow_init_pos_ = {Pi_2 / 2, deg_20, 0, Pi_2 / 2, 0, 0, 0,
-      -deg_10, 0, deg_10, 0, Pi_2, 0, 0,
+      -deg_30, 0, deg_10, 0, Pi_2, 0, 0,
       0};
 
 
