@@ -137,8 +137,8 @@ public:
 
     // Define target positions
     // Initial position (from h1_2_arm_sdk_dds_example.cpp)
-    init_pos_ = {0.f, 0.3, 0.f, 0, 0, 0, 0,
-      0.f, -0.3, 0.f, 0, 0, 0, 0,
+    init_pos_ = {deg_10, 0.3, 0.f, 0, 0, 0, 0,
+      deg_10, -0.3, 0.f, 0, 0, 0, 0,
       0.f};
 
     // Target position (from h1_2_arm_sdk_dds_example.cpp - arms up)
