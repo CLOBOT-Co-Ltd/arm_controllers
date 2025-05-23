@@ -275,10 +275,13 @@ private:
           break;
         }
 
-        std::cout << "current_pos[" << j << "] = " << current_pos.at(j) << std::endl;
-        std::cout << "target_pose[" << j << "] = " << target_pose.at(j) << std::endl;
-        std::cout << "diff[" << j << "] = " << std::fabs(current_pos.at(j) - target_pose.at(j)) <<
-          std::endl;
+        RCLCPP_INFO(
+          this->get_logger(), "Joint %d: current_pos = %f, target_pose = %f",
+          arm_joints_.at(j), current_pos.at(j), target_pose.at(j));
+        RCLCPP_INFO(
+          this->get_logger(), "Joint %d: diff = %f",
+          arm_joints_.at(j), std::fabs(current_pos.at(j) - target_pose.at(j)));
+
 
       }
 
