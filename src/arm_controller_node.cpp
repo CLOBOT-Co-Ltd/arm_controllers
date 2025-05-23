@@ -25,6 +25,7 @@ constexpr int WAVE_HAND_MOTION = 1;
 constexpr int FOLLOW_ME_MOTION = 2;
 constexpr int ITS_ME_MOTION = 3;
 constexpr int INTRODUCE_MOTION = 4;
+constexpr int TALKING_MOTION = 5;
 
 
 enum JointIndex
@@ -91,6 +92,8 @@ private:
   std::array<float, 15> follow_init_pos_;
   std::array<float, 15> its_me_init_pos_;
   std::array<float, 15> introduce_init_pos_;
+  std::array<float, 15> talking_init_pos_;
+
 
   std::array<JointIndex, 15> arm_joints_ = {
     JointIndex::kLeftShoulderPitch, JointIndex::kLeftShoulderRoll,
@@ -159,6 +162,10 @@ public:
     introduce_init_pos_ = {-deg_10, deg_30, Pi_2 / 2, deg_30 * 2, 0, 0, 0,
       deg_10, -0.3, 0.f, deg_30 * 2, 0, 0, 0,
       0.f};
+
+    talking_init_pos_ = {deg_30, deg_20, 0, Pi_2 / 2, 0, 0, 0,
+      -deg_10, -deg_30, 0, -deg_30, 0, 0, 0,
+      0};
 
 
     // Initial arm setup (move to init_pos once at startup)
@@ -615,6 +622,81 @@ private:
 
         loop_rate.sleep();
       }
+    } else if (action_type == TALKING_MOTION) {
+      // Get current position from state_msg (ensure state_msg is fresh)
+      // A more robust approach would wait for a state message if needed
+
+      std::array<float, 15> current_jpos_des;
+      for (int i = 0; i < arm_joints_.size(); ++i) {
+        start_pos.at(i) = state_msg_.motor_state().at(arm_joints_.at(i)).q();
+
+        if (i == 7) { // kRightShoulderPitch
+          current_jpos_des.at(i) = start_pos.at(i);
+        }
+      }
+
+      for (int i = 0; i <= num_time_steps; ++i) {
+        if (goal_handle && goal_handle->is_canceling()) {
+          RCLCPP_INFO(this->get_logger(), "Action canceled during movement");
+          return;       // Exit movement loop
+        }
+
+        float phase = static_cast<float>(i) / num_time_steps;
+        float smooth_phase = 0.5f - 0.5f * cos(Pi * phase);
+
+        // linear interpolation
+        for (int j = 0; j < arm_joints_.size(); ++j) {
+          // kRightShoulderPitch
+          if (j == 7) {
+            current_jpos_des.at(j) +=
+              std::clamp(
+              (float) (-deg_20 * std::sin(2 * Pi * phase)) - current_jpos_des.at(j),
+              -max_joint_delta_, max_joint_delta_);
+          } else {
+            current_jpos_des.at(j) = start_pos.at(j) * (1.0f - smooth_phase) + target_pose.at(j) *
+              smooth_phase;
+          }
+
+          // Set control commands
+          msg_.motor_cmd().at(arm_joints_.at(j)).q(current_jpos_des.at(j));
+          msg_.motor_cmd().at(arm_joints_.at(j)).dq(dq_);       // Velocity command (usually 0 for position control)
+          msg_.motor_cmd().at(arm_joints_.at(j)).kp(kp_array_.at(j));
+          msg_.motor_cmd().at(arm_joints_.at(j)).kd(kd_array_.at(j));
+          msg_.motor_cmd().at(arm_joints_.at(j)).tau(tau_ff_);       // Feedforward torque (usually 0)
+
+          // Populate feedback (using actual state, not desired)
+          if (feedback) {       // Use the passed feedback pointer
+            // Ensure feedback->current_joint_angle has enough space or is resized
+            // Assuming it's a dynamic container or properly sized
+            // For arm_interfaces::action::Gesture feedback structure (JointInfo[]),
+            // we need to populate individual JointInfo messages.
+            // This part requires more detailed knowledge of JointInfo struct.
+            // Based on the image, JointInfo has name, number, angle_rad
+            if (feedback->current_joint_angle.size() <= j) {
+              feedback->current_joint_angle.resize(j + 1);
+            }
+            feedback->current_joint_angle.at(j).joint_idx.name = "joint_" +
+              std::to_string(arm_joints_.at(j));                                                                      // Example name
+            feedback->current_joint_angle.at(j).joint_idx.number = arm_joints_.at(j);
+            feedback->current_joint_angle.at(j).angle_rad =
+              state_msg_.motor_state().at(arm_joints_.at(j)).q();                                                      // Use actual state for feedback
+          }
+        }
+
+        // Set weight (if needed for arm control mode, e.g., to enable torque control)
+        // Assuming JointIndex::kNotUsedJoint is used for weight based on h1_2_arm_sdk_dds_example.cpp
+        msg_.motor_cmd().at(JointIndex::kNotUsedJoint).q(1.0f);     // Example: set weight to 1.0 during movement
+
+        // Send dds msg
+        arm_sdk_publisher_->Write(msg_);
+
+        // Publish feedback
+        if (goal_handle && feedback) {     // Check both pointers are valid
+          goal_handle->publish_feedback(feedback);      // Pass the shared pointer directly
+        }
+
+        loop_rate.sleep();
+      }
     }
 
 
@@ -692,7 +774,7 @@ private:
 
     if (goal->action == INIT_POS_MOTION || goal->action == WAVE_HAND_MOTION ||
       goal->action == FOLLOW_ME_MOTION || goal->action == ITS_ME_MOTION ||
-      goal->action == INTRODUCE_MOTION)
+      goal->action == INTRODUCE_MOTION || goal->action == TALKING_MOTION)
     {
       return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
     } else {
@@ -756,6 +838,9 @@ private:
     } else if (goal->action == INTRODUCE_MOTION) {
       target_pose = introduce_init_pos_;       // Action 4: Move to target_pos (arms up)
       RCLCPP_INFO(this->get_logger(), "Action 4: Moving to introduce initial pose.");
+    } else if (goal->action == TALKING_MOTION) {
+      target_pose = talking_init_pos_;       // Action 5: Move to target_pos (arms up)
+      RCLCPP_INFO(this->get_logger(), "Action 5: Moving to introduce initial pose.");
     } else {
       // Should not happen due to handle_goal check, but as a fallback
       RCLCPP_ERROR(
