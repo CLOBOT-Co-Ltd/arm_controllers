@@ -19,6 +19,7 @@ constexpr float Pi_2 = 1.57079632;
 constexpr double deg_30 = 0.523599;
 constexpr double deg_20 = 0.349066;
 constexpr double deg_10 = 0.174533;
+constexpr double deg_3 = 0.0523599;
 
 constexpr int INIT_POS_MOTION = 0;
 constexpr int WAVE_HAND_MOTION = 1;
@@ -197,7 +198,7 @@ private:
     }
 
 
-    for (int i = 0; i <= num_time_steps; ++i) {
+    while (true) {
       if (goal_handle && goal_handle->is_canceling()) {
         RCLCPP_INFO(this->get_logger(), "Action canceled during movement");
         return;         // Exit movement loop
@@ -210,8 +211,7 @@ private:
       // sin 이징 interpolation
       for (int j = 0; j < arm_joints_.size(); ++j) {
         current_jpos_des.at(j) = start_pos.at(j) * (1.0f - smooth_phase) + target_pose.at(j) *
-          smooth_phase
-        ;
+          smooth_phase;
 
         // Set control commands
         msg_.motor_cmd().at(arm_joints_.at(j)).q(current_jpos_des.at(j));
@@ -252,6 +252,24 @@ private:
       }
 
       loop_rate.sleep();
+
+
+      bool ret = true;
+      std::array<float, 15> current_pos;
+
+      for (int j = 0; j < arm_joints_.size(); ++j) {
+        current_pos.at(j) = state_msg_.motor_state().at(arm_joints_.at(j)).q();
+
+        if (std::fabs(current_pos.at(j) - target_pose.at(j)) >= deg_3) {
+          ret = false;
+          break;
+        }
+      }
+
+      if (ret) {
+        RCLCPP_INFO(this->get_logger(), "Movement to target pose finished.");
+        break;       // Exit movement loop
+      }
     }
 
 
