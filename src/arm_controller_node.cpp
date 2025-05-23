@@ -197,6 +197,7 @@ private:
       start_pos.at(i) = state_msg_.motor_state().at(arm_joints_.at(i)).q();
     }
 
+    int phase_i = 0;
 
     while (true) {
       if (goal_handle && goal_handle->is_canceling()) {
@@ -204,7 +205,7 @@ private:
         return;         // Exit movement loop
       }
 
-      float phase = static_cast<float>(i) / num_time_steps;
+      float phase = static_cast<float>(phase_i) / num_time_steps;
       float smooth_phase = 0.5f - 0.5f * cos(Pi * phase);
       std::array<float, 15> current_jpos_des;
 
@@ -270,6 +271,9 @@ private:
         RCLCPP_INFO(this->get_logger(), "Movement to target pose finished.");
         break;       // Exit movement loop
       }
+
+      phase_i++;
+      phase_i = std::clamp(phase_i, 0, num_time_steps);
     }
 
 
