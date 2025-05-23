@@ -20,6 +20,7 @@ constexpr double deg_30 = 0.523599;
 constexpr double deg_20 = 0.349066;
 constexpr double deg_10 = 0.174533;
 constexpr double deg_3 = 0.0523599;
+constexpr double deg_5 = 0.0872665;
 
 constexpr int INIT_POS_MOTION = 0;
 constexpr int WAVE_HAND_MOTION = 1;
@@ -261,7 +262,7 @@ private:
       for (int j = 0; j < arm_joints_.size(); ++j) {
         current_pos.at(j) = state_msg_.motor_state().at(arm_joints_.at(j)).q();
 
-        if (std::fabs(current_pos.at(j) - target_pose.at(j)) >= deg_3) {
+        if (std::fabs(current_pos.at(j) - target_pose.at(j)) >= deg_5) {
           ret = false;
           break;
         }
