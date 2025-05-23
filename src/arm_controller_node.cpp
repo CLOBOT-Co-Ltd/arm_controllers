@@ -19,13 +19,10 @@ constexpr float Pi_2 = 1.57079632;
 constexpr double deg_30 = 0.523599;
 constexpr double deg_20 = 0.349066;
 constexpr double deg_10 = 0.174533;
-constexpr double deg_3 = 0.0523599;
-constexpr double deg_5 = 0.0872665;
 
 constexpr int INIT_POS_MOTION = 0;
 constexpr int WAVE_HAND_MOTION = 1;
-constexpr int FOLLOW_ME_MOTION = 2;
-constexpr int ITS_ME_MOTION = 3;
+constexpr int FOLLOW_MOTION = 2;
 
 enum JointIndex
 {
@@ -84,12 +81,9 @@ private:
 
   rclcpp_action::Server<arm_interfaces::action::Gesture>::SharedPtr action_server_;
 
-  std::atomic<bool> is_action_active_{false};
-
   std::array<float, 15> init_pos_;
   std::array<float, 15> wave_hand_init_pos_;
-  std::array<float, 15> follow_me_init_pos_;
-  std::array<float, 15> its_me_init_pos_;
+  std::array<float, 15> follow_init_pos_;
 
   std::array<JointIndex, 15> arm_joints_ = {
     JointIndex::kLeftShoulderPitch, JointIndex::kLeftShoulderRoll,
@@ -147,12 +141,8 @@ public:
       -Pi_2 / 2, -deg_20, 0, -Pi_2 / 2, -Pi_2, 0, 0,
       0};
 
-    follow_me_init_pos_ = {Pi_2 / 2, deg_20, 0, Pi_2 / 2, 0, 0, 0,
+    follow_init_pos_ = {Pi_2 / 2, deg_20, 0, Pi_2 / 2, 0, 0, 0,
       -deg_30, 0, deg_10, 0, Pi_2, 0, 0,
-      0};
-
-    its_me_init_pos_ = {Pi_2 / 2, deg_20, 0, Pi_2 / 2, 0, 0, 0,
-      -Pi_2 / 2, -deg_20, 0, -Pi_2 / 2, -Pi_2, 0, 0,
       0};
 
 
@@ -193,7 +183,6 @@ private:
     const std::shared_ptr<arm_interfaces::action::Gesture::Feedback> feedback)     // Accept feedback pointer
   {
     RCLCPP_INFO(this->get_logger(), "Moving arm to target pose over %f seconds", duration_sec);
-    RCLCPP_INFO(this->get_logger(), "DEBUG111");
     rclcpp::Rate loop_rate(1.0f / control_dt_);
 
     std::array<float, 15> start_pos;
@@ -207,15 +196,14 @@ private:
       start_pos.at(i) = state_msg_.motor_state().at(arm_joints_.at(i)).q();
     }
 
-    int phase_i = 0;
 
-    while (true) {
+    for (int i = 0; i <= num_time_steps; ++i) {
       if (goal_handle && goal_handle->is_canceling()) {
         RCLCPP_INFO(this->get_logger(), "Action canceled during movement");
         return;         // Exit movement loop
       }
 
-      float phase = static_cast<float>(phase_i) / num_time_steps;
+      float phase = static_cast<float>(i) / num_time_steps;
       float smooth_phase = 0.5f - 0.5f * cos(Pi * phase);
       std::array<float, 15> current_jpos_des;
 
@@ -261,42 +249,8 @@ private:
       if (goal_handle && feedback) {       // Check both pointers are valid
         goal_handle->publish_feedback(feedback);        // Pass the shared pointer directly
       }
-      RCLCPP_INFO(this->get_logger(), "DEBUG222");
+
       loop_rate.sleep();
-
-      RCLCPP_INFO(this->get_logger(), "DEBUG333");
-
-
-      bool ret = true;
-      std::array<float, 15> current_pos;
-
-      for (int j = 0; j < arm_joints_.size(); ++j) {
-        current_pos.at(j) = state_msg_.motor_state().at(arm_joints_.at(j)).q();
-
-        if (std::fabs(current_pos.at(j) - target_pose.at(j)) >= deg_5) {
-          ret = false;
-          break;
-        }
-      }
-
-      for (int j = 0; j < arm_joints_.size(); ++j) {
-        RCLCPP_INFO(
-          this->get_logger(), "arm size: %d", arm_joints_.size());
-        RCLCPP_INFO(
-          this->get_logger(), "Joint %d: current_pos = %f, target_pose = %f",
-          arm_joints_.at(j), current_pos.at(j), target_pose.at(j));
-        RCLCPP_INFO(
-          this->get_logger(), "Joint %d: diff = %f",
-          arm_joints_.at(j), std::fabs(current_pos.at(j) - target_pose.at(j)));
-      }
-
-      if (ret) {
-        RCLCPP_INFO(this->get_logger(), "Movement to target pose finished.");
-        break;       // Exit movement loop
-      }
-
-      phase_i++;
-      phase_i = std::clamp(phase_i, 0, num_time_steps);
     }
 
 
@@ -440,7 +394,7 @@ private:
 
         loop_rate.sleep();
       }
-    } else if (action_type == FOLLOW_ME_MOTION) {
+    } else if (action_type == FOLLOW_MOTION) {
       // Get current position from state_msg (ensure state_msg is fresh)
       // A more robust approach would wait for a state message if needed
 
@@ -579,73 +533,6 @@ private:
 
         loop_rate.sleep();
       }
-    } else if (action_type == ITS_ME_MOTION) {
-      // Get current position from state_msg (ensure state_msg is fresh)
-      // A more robust approach would wait for a state message if needed
-
-      std::array<float, 15> current_jpos_des;
-
-      // Get current position from state_msg (ensure state_msg is fresh)
-      // A more robust approach would wait for a state message if needed
-      for (int i = 0; i < arm_joints_.size(); ++i) {
-        start_pos.at(i) = state_msg_.motor_state().at(arm_joints_.at(i)).q();
-      }
-
-
-      for (int i = 0; i <= num_time_steps; ++i) {
-        if (goal_handle && goal_handle->is_canceling()) {
-          RCLCPP_INFO(this->get_logger(), "Action canceled during movement");
-          return;       // Exit movement loop
-        }
-
-        float phase = static_cast<float>(i) / num_time_steps;
-        float smooth_phase = 0.5f - 0.5f * cos(Pi * phase);
-
-        // sin 이징 interpolation
-        for (int j = 0; j < arm_joints_.size(); ++j) {
-          current_jpos_des.at(j) = start_pos.at(j) * (1.0f - smooth_phase) + init_pos_.at(j) *
-            smooth_phase;
-
-          // Set control commands
-          msg_.motor_cmd().at(arm_joints_.at(j)).q(current_jpos_des.at(j));
-          msg_.motor_cmd().at(arm_joints_.at(j)).dq(dq_);       // Velocity command (usually 0 for position control)
-          msg_.motor_cmd().at(arm_joints_.at(j)).kp(kp_array_.at(j));
-          msg_.motor_cmd().at(arm_joints_.at(j)).kd(kd_array_.at(j));
-          msg_.motor_cmd().at(arm_joints_.at(j)).tau(tau_ff_);       // Feedforward torque (usually 0)
-
-          // Populate feedback (using actual state, not desired)
-          if (feedback) {       // Use the passed feedback pointer
-            // Ensure feedback->current_joint_angle has enough space or is resized
-            // Assuming it's a dynamic container or properly sized
-            // For arm_interfaces::action::Gesture feedback structure (JointInfo[]),
-            // we need to populate individual JointInfo messages.
-            // This part requires more detailed knowledge of JointInfo struct.
-            // Based on the image, JointInfo has name, number, angle_rad
-            if (feedback->current_joint_angle.size() <= j) {
-              feedback->current_joint_angle.resize(j + 1);
-            }
-            feedback->current_joint_angle.at(j).joint_idx.name = "joint_" +
-              std::to_string(arm_joints_.at(j));                                                                      // Example name
-            feedback->current_joint_angle.at(j).joint_idx.number = arm_joints_.at(j);
-            feedback->current_joint_angle.at(j).angle_rad =
-              state_msg_.motor_state().at(arm_joints_.at(j)).q();                                                      // Use actual state for feedback
-          }
-        }
-
-        // Set weight (if needed for arm control mode, e.g., to enable torque control)
-        // Assuming JointIndex::kNotUsedJoint is used for weight based on h1_2_arm_sdk_dds_example.cpp
-        msg_.motor_cmd().at(JointIndex::kNotUsedJoint).q(1.0f); // Example: set weight to 1.0 during movement
-
-        // Send dds msg
-        arm_sdk_publisher_->Write(msg_);
-
-        // Publish feedback
-        if (goal_handle && feedback) {     // Check both pointers are valid
-          goal_handle->publish_feedback(feedback);      // Pass the shared pointer directly
-        }
-
-        loop_rate.sleep();
-      }
     }
 
 
@@ -707,20 +594,17 @@ private:
     RCLCPP_INFO(this->get_logger(), "Arm initialization done.");
   }
 
+
+  // Action Goal handling
   rclcpp_action::GoalResponse handle_goal(
     const rclcpp_action::GoalUUID & uuid,
     std::shared_ptr<const arm_interfaces::action::Gesture::Goal> goal)
   {
     RCLCPP_INFO(this->get_logger(), "Received gesture action goal request: %d", goal->action);
     (void)uuid;
-
-    if (is_action_active_) {
-      RCLCPP_WARN(this->get_logger(), "Rejected goal: Another action is already active.");
-      return rclcpp_action::GoalResponse::REJECT;
-    }
-
+    // Accept the goal if action is 0 or 1, otherwise reject
     if (goal->action == INIT_POS_MOTION || goal->action == WAVE_HAND_MOTION ||
-      goal->action == FOLLOW_ME_MOTION || goal->action == ITS_ME_MOTION)
+      goal->action == FOLLOW_MOTION)
     {
       return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
     } else {
@@ -737,9 +621,6 @@ private:
     RCLCPP_INFO(this->get_logger(), "Received request to cancel gesture action goal");
     (void)goal_handle;
     // Implement cancellation logic if needed (e.g., stop current movement)
-
-    is_action_active_ = false;
-
     return rclcpp_action::CancelResponse::ACCEPT;
   }
 
@@ -761,7 +642,6 @@ private:
     goal_handle)
   {
     RCLCPP_INFO(this->get_logger(), "Executing gesture action");
-    is_action_active_ = true;
 
     auto goal = goal_handle->get_goal();
     auto feedback = std::make_shared<arm_interfaces::action::Gesture::Feedback>();
@@ -776,12 +656,9 @@ private:
     } else if (goal->action == WAVE_HAND_MOTION) {
       target_pose = wave_hand_init_pos_;       // Action 1: Move to target_pos (arms up)
       RCLCPP_INFO(this->get_logger(), "Action 1: Moving to wave hand initial pose.");
-    } else if (goal->action == FOLLOW_ME_MOTION) {
-      target_pose = follow_me_init_pos_;       // Action 2: Move to target_pos (arms up)
+    } else if (goal->action == FOLLOW_MOTION) {
+      target_pose = follow_init_pos_;       // Action 2: Move to target_pos (arms up)
       RCLCPP_INFO(this->get_logger(), "Action 2: Moving to follow initial pose.");
-    } else if (goal->action == ITS_ME_MOTION) {
-      target_pose = its_me_init_pos_;       // Action 3: Move to target_pos (arms up)
-      RCLCPP_INFO(this->get_logger(), "Action 3: Moving to its me initial pose.");
     } else {
       // Should not happen due to handle_goal check, but as a fallback
       RCLCPP_ERROR(this->get_logger(), "Invalid action type received in execute: %d", goal->action);
@@ -804,8 +681,6 @@ private:
       goal_handle->succeed(result);       // Use the result object
       RCLCPP_INFO(this->get_logger(), "Gesture action succeeded.");
     }
-
-    is_action_active_ = false;       // Reset action state
   }
 };
 
