@@ -765,24 +765,25 @@ private:
       goal_handle->abort(result);       // Use the result object
       return;
     }
+
+
+    // Execute the movement, passing the feedback object
+    move_arm_to_pose(goal->action, target_pose, move_duration, goal_handle, feedback);
+
+    // Check if the goal was canceled
+    if (goal_handle->is_canceling()) {
+      result->result = false;       // Indicate failure due to cancellation
+      goal_handle->canceled(result);       // Use the result object
+      RCLCPP_INFO(this->get_logger(), "Gesture action canceled.");
+    } else {
+      // Action completed successfully
+      result->result = true;       // Indicate success
+      goal_handle->succeed(result);       // Use the result object
+      RCLCPP_INFO(this->get_logger(), "Gesture action succeeded.");
+    }
+
+    is_action_active_ = false;
   }
-
-  // Execute the movement, passing the feedback object
-  move_arm_to_pose(goal->action, target_pose, move_duration, goal_handle, feedback);
-
-  // Check if the goal was canceled
-  if (goal_handle->is_canceling()) {
-    result->result = false;         // Indicate failure due to cancellation
-    goal_handle->canceled(result);         // Use the result object
-    RCLCPP_INFO(this->get_logger(), "Gesture action canceled.");
-  } else {
-    // Action completed successfully
-    result->result = true;         // Indicate success
-    goal_handle->succeed(result);         // Use the result object
-    RCLCPP_INFO(this->get_logger(), "Gesture action succeeded.");
-  }
-
-  is_action_active_ = false;
 };
 
 int main(int argc, char * argv[])
