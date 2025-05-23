@@ -281,6 +281,8 @@ private:
 
       for (int j = 0; j < arm_joints_.size(); ++j) {
         RCLCPP_INFO(
+          this->get_logger(), "arm size: %d", arm_joints_.size());
+        RCLCPP_INFO(
           this->get_logger(), "Joint %d: current_pos = %f, target_pose = %f",
           arm_joints_.at(j), current_pos.at(j), target_pose.at(j));
         RCLCPP_INFO(
