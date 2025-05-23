@@ -783,7 +783,6 @@ private:
   }
 
   is_action_active_ = false;
-}
 };
 
 int main(int argc, char * argv[])
