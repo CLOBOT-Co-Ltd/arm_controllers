@@ -274,6 +274,12 @@ private:
           ret = false;
           break;
         }
+
+        std::cout << "current_pos[" << j << "] = " << current_pos.at(j) << std::endl;
+        std::cout << "target_pose[" << j << "] = " << target_pose.at(j) << std::endl;
+        std::cout << "diff[" << j << "] = " << std::fabs(current_pos.at(j) - target_pose.at(j)) <<
+          std::endl;
+
       }
 
       if (ret) {
