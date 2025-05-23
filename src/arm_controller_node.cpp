@@ -24,6 +24,7 @@ constexpr int INIT_POS_MOTION = 0;
 constexpr int WAVE_HAND_MOTION = 1;
 constexpr int FOLLOW_ME_MOTION = 2;
 constexpr int ITS_ME_MOTION = 3;
+constexpr int INTRODUCE_MOTION = 4;
 
 
 enum JointIndex
@@ -89,6 +90,7 @@ private:
   std::array<float, 15> wave_hand_init_pos_;
   std::array<float, 15> follow_init_pos_;
   std::array<float, 15> its_me_init_pos_;
+  std::array<float, 15> introduce_init_pos_;
 
   std::array<JointIndex, 15> arm_joints_ = {
     JointIndex::kLeftShoulderPitch, JointIndex::kLeftShoulderRoll,
@@ -153,6 +155,11 @@ public:
     its_me_init_pos_ = {Pi_2 / 2, deg_20, 0, Pi_2 / 2, 0, 0, 0,
       -Pi_2 / 2, -deg_20, 0, -Pi_2 / 2, -Pi_2, 0, 0,
       0};
+
+    introduce_init_pos_ = {-deg_10, deg_30, Pi_2 / 2, deg_30 * 2, 0, 0, 0,
+      deg_10, -0.3, 0.f, deg_30 * 2, 0, 0, 0,
+      0.f};
+
 
     // Initial arm setup (move to init_pos once at startup)
     // initialize_arm();
@@ -684,7 +691,8 @@ private:
     }
 
     if (goal->action == INIT_POS_MOTION || goal->action == WAVE_HAND_MOTION ||
-      goal->action == FOLLOW_ME_MOTION || goal->action == ITS_ME_MOTION)
+      goal->action == FOLLOW_ME_MOTION || goal->action == ITS_ME_MOTION ||
+      goal->action == INTRODUCE_MOTION)
     {
       return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
     } else {
@@ -745,31 +753,37 @@ private:
     } else if (goal->action == ITS_ME_MOTION) {
       target_pose = its_me_init_pos_;       // Action 3: Move to target_pos (arms up)
       RCLCPP_INFO(this->get_logger(), "Action 3: Moving to its me initial pose.");
+    } else if (goal->action == INTRODUCE_MOTION) {
+      target_pose = introduce_init_pos_;       // Action 4: Move to target_pos (arms up)
+      RCLCPP_INFO(this->get_logger(), "Action 4: Moving to introduce initial pose.");
     } else {
       // Should not happen due to handle_goal check, but as a fallback
-      RCLCPP_ERROR(this->get_logger(), "Invalid action type received in execute: %d", goal->action);
+      RCLCPP_ERROR(
+        this->get_logger(), "Invalid action type received in execute: %d",
+        goal->action);
       result->result = false;
       goal_handle->abort(result);       // Use the result object
       return;
     }
-
-    // Execute the movement, passing the feedback object
-    move_arm_to_pose(goal->action, target_pose, move_duration, goal_handle, feedback);
-
-    // Check if the goal was canceled
-    if (goal_handle->is_canceling()) {
-      result->result = false;       // Indicate failure due to cancellation
-      goal_handle->canceled(result);       // Use the result object
-      RCLCPP_INFO(this->get_logger(), "Gesture action canceled.");
-    } else {
-      // Action completed successfully
-      result->result = true;       // Indicate success
-      goal_handle->succeed(result);       // Use the result object
-      RCLCPP_INFO(this->get_logger(), "Gesture action succeeded.");
-    }
-
-    is_action_active_ = false;
   }
+
+  // Execute the movement, passing the feedback object
+  move_arm_to_pose(goal->action, target_pose, move_duration, goal_handle, feedback);
+
+  // Check if the goal was canceled
+  if (goal_handle->is_canceling()) {
+    result->result = false;         // Indicate failure due to cancellation
+    goal_handle->canceled(result);         // Use the result object
+    RCLCPP_INFO(this->get_logger(), "Gesture action canceled.");
+  } else {
+    // Action completed successfully
+    result->result = true;         // Indicate success
+    goal_handle->succeed(result);         // Use the result object
+    RCLCPP_INFO(this->get_logger(), "Gesture action succeeded.");
+  }
+
+  is_action_active_ = false;
+}
 };
 
 int main(int argc, char * argv[])
