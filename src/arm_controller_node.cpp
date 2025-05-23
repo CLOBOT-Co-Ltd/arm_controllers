@@ -193,6 +193,7 @@ private:
     const std::shared_ptr<arm_interfaces::action::Gesture::Feedback> feedback)     // Accept feedback pointer
   {
     RCLCPP_INFO(this->get_logger(), "Moving arm to target pose over %f seconds", duration_sec);
+    RCLCPP_INFO(this->get_logger(), "DEBUG...");
     rclcpp::Rate loop_rate(1.0f / control_dt_);
 
     std::array<float, 15> start_pos;
@@ -261,7 +262,9 @@ private:
         goal_handle->publish_feedback(feedback);        // Pass the shared pointer directly
       }
 
+      RCLCPP_INFO(this->get_logger(), "DEBUG222...");
       loop_rate.sleep();
+      RCLCPP_INFO(this->get_logger(), "DEBUG333...");
 
 
       bool ret = true;
